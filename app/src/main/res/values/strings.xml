@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">APatch</string>
+    <string name="app_name" translatable="false">APatch Boox</string>
 
     <string name="home">Home</string>
 
@@ -14,6 +14,7 @@
     <string name="failure">Failure</string>
 
     <string name="patch_warnning">Installation comes with risks. Please ensure your data is backed up.</string>
+    <string name="boox_device_warning">This build is only for BOOX devices. It is not recommended for other devices unless required to resolve a confirmed compatibility issue.</string>
     <string name="patch">Patch</string>
 
     <string name="kernel_patch">KernelPatch</string>

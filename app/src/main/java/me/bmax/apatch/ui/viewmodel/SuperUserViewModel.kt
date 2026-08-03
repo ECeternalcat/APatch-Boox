@@ -1,13 +1,9 @@
 package me.bmax.apatch.ui.viewmodel
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.graphics.drawable.Drawable
-import android.os.IBinder
 import android.os.Parcelable
 import android.util.Log
 import androidx.compose.runtime.derivedStateOf
@@ -15,22 +11,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
-import me.bmax.apatch.IAPRootService
 import me.bmax.apatch.Natives
 import me.bmax.apatch.apApp
-import me.bmax.apatch.services.RootServices
-import me.bmax.apatch.util.APatchCli
 import me.bmax.apatch.util.HanziToPinyin
 import me.bmax.apatch.util.PkgConfig
 import java.text.Collator
 import java.util.Locale
 import kotlin.concurrent.thread
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 
 class SuperUserViewModel : ViewModel() {
@@ -83,48 +73,15 @@ class SuperUserViewModel : ViewModel() {
         }
     }
 
-    private suspend inline fun connectRootService(
-        crossinline onDisconnect: () -> Unit = {}
-    ): Pair<IBinder, ServiceConnection> = suspendCoroutine {
-        val connection = object : ServiceConnection {
-            override fun onServiceDisconnected(name: ComponentName?) {
-                onDisconnect()
-            }
-
-            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                it.resume(binder as IBinder to this)
-            }
-        }
-        val intent = Intent(apApp, RootServices::class.java)
-        val task = RootServices.bindOrTask(
-            intent,
-            Shell.EXECUTOR,
-            connection,
-        )
-        val shell = APatchCli.SHELL
-        task?.let { it1 -> shell.execTask(it1) }
-    }
-
-    private fun stopRootService() {
-        val intent = Intent(apApp, RootServices::class.java)
-        RootServices.stop(intent)
-    }
-
     suspend fun fetchAppList() {
         isRefreshing = true
 
         try {
-            val result = connectRootService {
-                Log.w(TAG, "RootService disconnected")
-            }
-
             withContext(Dispatchers.IO) {
-                val binder = result.first
-                val allPackages = IAPRootService.Stub.asInterface(binder).getPackages(0)
+                // BOOX's ActivityManager crashes when libsu starts a UID 0 root service.
+                // QUERY_ALL_PACKAGES already lets the manager enumerate this device's sole user.
+                val allPackages = apApp.packageManager.getInstalledPackages(0)
 
-                withContext(Dispatchers.Main) {
-                    stopRootService()
-                }
                 val uids = Natives.suUids().toList()
                 Log.d(TAG, "all allows: $uids")
 
@@ -136,7 +93,7 @@ class SuperUserViewModel : ViewModel() {
 
                 Log.d(TAG, "all configs: $configs")
 
-                val newApps = allPackages.list.map {
+                val newApps = allPackages.map {
                     val appInfo = it.applicationInfo
                     val uid = appInfo!!.uid
                     val actProfile = if (uids.contains(uid)) Natives.suProfile(uid) else null
@@ -155,7 +112,7 @@ class SuperUserViewModel : ViewModel() {
                         packageInfo = it,
                         config = config
                     )
-                }
+                }.filter { it.packageName != apApp.packageName }
 
                 withContext(Dispatchers.Main) {
                     synchronized(appsLock) {

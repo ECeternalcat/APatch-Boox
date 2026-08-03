@@ -106,6 +106,7 @@ android {
     }
 
     defaultConfig {
+        applicationId = "me.bmax.apatch.boox"
         minSdk = androidMinSdkVersion
         targetSdk = androidTargetSdkVersion
         versionCode = managerVersionCode

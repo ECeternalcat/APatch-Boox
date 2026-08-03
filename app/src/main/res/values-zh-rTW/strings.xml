@@ -3,6 +3,7 @@
     <string name="app_name" translatable="false">APatch</string>
     <string name="android_patch">Android 修補</string>
     <string name="patch_warnning">安裝過程存在風險。請確保你的資料已備份。</string>
+    <string name="boox_device_warning">本版本僅供 BOOX 裝置使用。其他裝置若非用於解決已確認的相容性問題，不建議使用。</string>
     <string name="reboot_download">重新啟動至 Download</string>
     <string name="reboot_edl">重新啟動至 EDL</string>
     <string name="reboot_recovery">重新啟動至 Recovery</string>

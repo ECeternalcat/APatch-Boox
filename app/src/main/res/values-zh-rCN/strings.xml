@@ -9,6 +9,7 @@
     <string name="log_saved">日志已保存</string>
     <string name="send_log">发送日志</string>
     <string name="patch_warnning">安装过程存在风险，请确保您的数据已备份。</string>
+    <string name="boox_device_warning">本版本只供文石设备使用。其他设备如非解决已确认的兼容性问题，不建议使用。</string>
     <string name="home_patch_set_key_desc">内核补丁的唯一授权凭证</string>
     <string name="home_install_unknown">内核补丁未安装</string>
     <string name="home_install_unknown_summary">当前无法获取 Root，可能尚未修补或未刷入内核。</string>

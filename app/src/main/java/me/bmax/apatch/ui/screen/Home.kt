@@ -116,6 +116,7 @@ fun HomeScreen(navigator: DestinationsNavigator) {
         ) {
             Spacer(Modifier.height(0.dp))
             WarningCard()
+            BooxWarningCard()
             KStatusCard(kpState, apState, navigator)
             if (kpState != APApplication.State.UNKNOWN_STATE && apState != APApplication.State.ANDROIDPATCH_INSTALLED) {
                 AStatusCard(apState)
@@ -635,6 +636,55 @@ fun WarningCard() {
                                 show = false
                                 apApp.updateBackupWarningState(false)
                             },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BooxWarningCard() {
+    var show by rememberSaveable { mutableStateOf(true) }
+    if (show) {
+        ElevatedCard(
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.error)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Filled.Warning, contentDescription = "warning")
+                }
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.CenterHorizontally),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = stringResource(id = R.string.boox_device_warning),
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Icon(
+                            Icons.Outlined.Clear,
+                            contentDescription = "",
+                            modifier = Modifier.clickable { show = false },
                         )
                     }
                 }
