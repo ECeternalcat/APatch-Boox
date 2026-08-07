@@ -377,15 +377,13 @@ class PatchesViewModel : ViewModel() {
             if (mode == PatchMode.PATCH_AND_INSTALL || mode == PatchMode.INSTALL_TO_NEXT_SLOT) {
 
                 val KPCheck = shell.newJob().add("truncate ${APApplication.superKey} -Z u:r:magisk:s0 -c whoami").exec()
+                logs.add("- Root check: ${if (KPCheck.isSuccess) "OK" else "FAILED (code=${KPCheck.code})"}")
 
-                if (KPCheck.isSuccess && !isSuExecutable()) {
-                    patchCommand.addAll(0, listOf("truncate", APApplication.superKey, "-Z", APApplication.MAGISK_SCONTEXT, "-c"))
-                    patchCommand.addAll(listOf(superkey, srcBoot.path, "true"))
-                } else {
-                    patchCommand = mutableListOf("./busybox", "sh", "boot_patch.sh")
-                    patchCommand.addAll(listOf(superkey, srcBoot.path, "true"))
-                    isKpOld = true
-                }
+                // BOOX: always use shell-based patching (ProcessBuilder cannot invoke
+                // the KernelPatch SU binary on BOOX's customized Android).
+                patchCommand = mutableListOf("./busybox", "sh", "boot_patch.sh")
+                patchCommand.addAll(listOf(superkey, srcBoot.path, "true"))
+                isKpOld = true
 
             } else {
                 patchCommand.addAll(0, listOf("sh", "-c"))
@@ -450,12 +448,11 @@ class PatchesViewModel : ViewModel() {
             }
 
             if (!succ) {
-                val msg = " Patch failed."
-                error = msg
-//                error += result.err.joinToString("\n")
+                error = " Patch failed. Exit code: ${if (isKpOld) "shell" else "process"}. Check log below for details."
                 logs.add(error)
                 logs.add("****************************")
                 patching = false
+                patchdone = true
                 return@launch
             }
 

@@ -213,6 +213,7 @@
     <string name="boox_superkey_invalid">超級密鑰需為 8–63 位，且同時包含字母和數字</string>
     <string name="boox_superkey_wrong">認證失敗，請確認密鑰與修補時使用的一致。</string>
     <string name="boox_superkey_success">超級密鑰已接受。</string>
+    <string name="boox_patch_superkey_summary">APatch 官方密鑰強制要求管理器簽章與官方一致，本版本簽章不同，因此必須使用自訂超級密鑰。</string>
 
     <string name="about_github" translatable="false">GitHub</string>
     <string name="about_weblate" translatable="false">Weblate</string>

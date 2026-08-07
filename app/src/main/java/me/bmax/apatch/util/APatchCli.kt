@@ -102,7 +102,11 @@ private fun createMainRootShell() : Shell {
         }
     }
 
-    MainShell.setBuilder(builder)
+    try {
+        MainShell.setBuilder(builder)
+    } catch (e: IllegalStateException) {
+        Log.w(TAG, "Main shell already set, skipping setBuilder", e)
+    }
     return shell
 }
 
@@ -403,11 +407,15 @@ fun installJailbreak(): Boolean {
 
 /** Whether the SELinux mode is permissive (getenforce), the prerequisite for jailbreak. */
 fun isSELinuxPermissive(): Boolean {
-    val shell = Shell.Builder.create().build("sh")
-    val out = ArrayList<String>()
-    val result = shell.newJob().add("getenforce").to(out, ArrayList()).exec()
-    return result.isSuccess &&
-        out.firstOrNull()?.trim()?.equals("Permissive", ignoreCase = true) == true
+    return try {
+        val process = ProcessBuilder("getenforce").redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        output.equals("Permissive", ignoreCase = true)
+    } catch (e: Exception) {
+        Log.e(TAG, "isSELinuxPermissive failed", e)
+        false
+    }
 }
 
 /** Whether jailbreak mode is active (the ko has been loaded and a marker written). */

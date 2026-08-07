@@ -242,4 +242,5 @@
     <string name="boox_superkey_invalid">超级密钥需为 8–63 位，且同时包含字母和数字</string>
     <string name="boox_superkey_wrong">认证失败，请确认密钥与修补时使用的一致。</string>
     <string name="boox_superkey_success">超级密钥已接受。</string>
+    <string name="boox_patch_superkey_summary">APatch 官方密钥强制要求管理器签名与官方一致，本版本签名不同，因此必须使用自定义超级密钥。</string>
 </resources>

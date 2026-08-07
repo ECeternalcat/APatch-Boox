@@ -275,4 +275,5 @@
     <string name="boox_superkey_invalid">SuperKey must be 8–63 characters with letters and numbers</string>
     <string name="boox_superkey_wrong">Authentication failed. Please verify the key matches the one used during patching.</string>
     <string name="boox_superkey_success">SuperKey accepted.</string>
+    <string name="boox_patch_superkey_summary">The official APatch key requires the manager signature to match the official one. This build uses a different signature, so a Custom SuperKey is required.</string>
 </resources>

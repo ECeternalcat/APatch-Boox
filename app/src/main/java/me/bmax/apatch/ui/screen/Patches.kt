@@ -124,7 +124,7 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
 
-    var needKey by rememberSaveable { mutableStateOf(false) }
+    var needKey by rememberSaveable { mutableStateOf(true) }
 
     val viewModel = viewModel<PatchesViewModel>()
     SideEffect {
@@ -214,26 +214,32 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                     ),
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
-                    SwitchItem(
-                        icon = Icons.Default.Key,
-                        title = stringResource(R.string.patch_custom_superkey),
-                        summary = stringResource(R.string.patch_custom_superkey_summary),
-                        checked = needKey,
-                        onCheckedChange = { checked ->
-                            needKey = checked
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Key,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = stringResource(R.string.patch_custom_superkey),
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
-                    )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.boox_patch_superkey_summary),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
 
-                AnimatedVisibility(
-                    visible = needKey,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SetSuperKeyView(viewModel)
-                    }
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SetSuperKeyView(viewModel)
                 }
             }
 
