@@ -24,9 +24,20 @@ BOOX uses a customized Android framework. On the Tab Ultra C Pro firmware tested
 
 ### What Is Changed
 
+**Compatibility fixes**
+
 - The Superuser page enumerates installed packages through the Manager's `QUERY_ALL_PACKAGES` permission instead of starting that RootService.
-- The application ID is changed to `me.bmax.apatch.boox` and the application name is changed to `APatch Boox`.
 - A hard-coded official package data path used by the module helper is replaced with the current application package name.
+
+**Identity**
+
+- The application ID is changed to `me.bmax.apatch.boox` and the application name is changed to `APatch Boox`.
+
+**E-ink adaptations**
+
+- A dedicated monochrome (black / white / gray) color scheme replaces all dynamic and custom color themes.
+- Window animations, navigation transitions, and Compose fade/slide/crossfade animations are disabled to reduce ghosting.
+- Home-screen cards that used colored fills (warning bars, KernelPatch / AndroidPatch status cards) are changed to white background with a black border.
 - KernelPatch, APD, SuperKey handling, root authorization, and boot patching behavior are otherwise intended to remain unchanged.
 
 ### Important Notes
@@ -37,6 +48,40 @@ BOOX uses a customized Android framework. On the Tab Ultra C Pro firmware tested
 - The package name is different from the official Manager. Settings and Manager data are not automatically shared between the two applications.
 - Report BOOX-specific issues to the maintainer of this build first. Do not assume that an issue is present in the official APatch project.
 
+---
+
+## Build from Source
+
+### Prerequisites
+
+- JDK 21
+- Android SDK (Build-Tools 36.1, NDK 29)
+- Rust toolchain with `cargo-ndk`:
+  ```bash
+  rustup target add aarch64-linux-android
+  cargo install cargo-ndk
+  ```
+
+### Steps
+
+1. Create `local.properties` with your SDK path:
+   ```properties
+   sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
+   ```
+2. Build a debug APK:
+   ```bash
+   ./gradlew :app:assembleDebug
+   ```
+
+---
+
+## Upstream APatch Information
+
+The sections below describe the official APatch project.
+
+> [!NOTE]
+> The download links below refer to the **official** APatch project. For BOOX builds, check this fork's [Releases](../../releases) or build from source.
+
 The patching of Android kernel and Android system.
 
 - A new kernel-based root solution for Android devices.
@@ -44,10 +89,6 @@ The patching of Android kernel and Android system.
 - KPM: Support for modules that allow you to inject any code into the kernel (Provides kernel function `inline-hook` and `syscall-table-hook`).
 - APatch relies on [KernelPatch](https://github.com/bmax121/KernelPatch/).
 - The APatch UI and the APModule source code have been derived and modified from [KernelSU](https://github.com/tiann/KernelSU).
-
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-     alt="Get it on F-Droid"
-     height="80">](https://f-droid.org/packages/me.bmax.apatch/)
 
 Or download the latest APK from the [Releases Section](https://github.com/bmax121/APatch/releases/latest).
 

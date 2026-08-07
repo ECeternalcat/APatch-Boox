@@ -211,4 +211,13 @@
     <string name="apm_action">執行</string>
     <string name="crash_handle_copied">已將崩潰日誌複製到剪貼簿。</string>
     <string name="settings_force_overlayfs_mode">強制使用 OverlayFS</string>
+
+    <!-- BOOX: 自訂超級密鑰 -->
+    <string name="boox_superkey_card_title">未偵測到核心補丁</string>
+    <string name="boox_superkey_card_summary">APatch Boox 的簽章與官方 APatch 不同，因此無法使用簽章認證。\n\n請使用官方 APatch 管理器，開啟「自訂超級密鑰」重新修補 boot 映像檔，然後在此輸入相同的密鑰。</string>
+    <string name="boox_superkey_hint">輸入自訂超級密鑰</string>
+    <string name="boox_superkey_apply">套用</string>
+    <string name="boox_superkey_invalid">超級密鑰需為 8–63 位，且同時包含字母和數字</string>
+    <string name="boox_superkey_wrong">認證失敗，請確認密鑰與修補時使用的一致。</string>
+    <string name="boox_superkey_success">超級密鑰已接受。</string>
 </resources>

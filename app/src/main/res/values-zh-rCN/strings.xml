@@ -220,4 +220,13 @@
     <string name="crash_handle_title">应用崩溃了…</string>
     <string name="crash_handle_copy">复制崩溃日志</string>
     <string name="crash_handle_copied">崩溃日志已复制到剪贴板。</string>
+
+    <!-- BOOX: 自定义超级密钥 -->
+    <string name="boox_superkey_card_title">未检测到内核补丁</string>
+    <string name="boox_superkey_card_summary">APatch Boox 的签名与官方 APatch 不同，因此无法使用签名认证。\n\n请使用官方 APatch 管理器，开启“自定义超级密钥”重新修补 boot 镜像，然后在此输入相同的密钥。</string>
+    <string name="boox_superkey_hint">输入自定义超级密钥</string>
+    <string name="boox_superkey_apply">应用</string>
+    <string name="boox_superkey_invalid">超级密钥需为 8–63 位，且同时包含字母和数字</string>
+    <string name="boox_superkey_wrong">认证失败，请确认密钥与修补时使用的一致。</string>
+    <string name="boox_superkey_success">超级密钥已接受。</string>
 </resources>

@@ -106,48 +106,16 @@ class MainActivity : AppCompatActivity() {
 
                 val defaultTransitions = object : NavHostAnimatedDestinationStyle() {
                     override val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
-                        {
-                            // If the target is a detail page (not a bottom navigation page), slide in from the right
-                            if (targetState.destination.route !in bottomBarRoutes) {
-                                slideInHorizontally(initialOffsetX = { it })
-                            } else {
-                                // Otherwise (switching between bottom navigation pages), use fade in
-                                fadeIn(animationSpec = tween(340))
-                            }
-                        }
+                        { EnterTransition.None }
 
                     override val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
-                        {
-                            // If navigating from the home page (bottom navigation page) to a detail page, slide out to the left
-                            if (initialState.destination.route in bottomBarRoutes && targetState.destination.route !in bottomBarRoutes) {
-                                slideOutHorizontally(targetOffsetX = { -it / 4 }) + fadeOut()
-                            } else {
-                                // Otherwise (switching between bottom navigation pages), use fade out
-                                fadeOut(animationSpec = tween(340))
-                            }
-                        }
+                        { ExitTransition.None }
 
                     override val popEnterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition =
-                        {
-                            // If returning to the home page (bottom navigation page), slide in from the left
-                            if (targetState.destination.route in bottomBarRoutes) {
-                                slideInHorizontally(initialOffsetX = { -it / 4 }) + fadeIn()
-                            } else {
-                                // Otherwise (e.g., returning between multiple detail pages), use default fade in
-                                fadeIn(animationSpec = tween(340))
-                            }
-                        }
+                        { EnterTransition.None }
 
                     override val popExitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition =
-                        {
-                            // If returning from a detail page (not a bottom navigation page), scale down and fade out
-                            if (initialState.destination.route !in bottomBarRoutes) {
-                                scaleOut(targetScale = 0.9f) + fadeOut()
-                            } else {
-                                // Otherwise, use default fade out
-                                fadeOut(animationSpec = tween(340))
-                            }
-                        }
+                        { ExitTransition.None }
                 }
 
                 LaunchedEffect(Unit) {
@@ -219,7 +187,8 @@ private fun BottomBar(navController: NavHostController, visibleDestinations: Set
 
     Crossfade(
         targetState = visibleDestinations,
-        label = "BottomBarStateCrossfade"
+        label = "BottomBarStateCrossfade",
+        animationSpec = tween(0)
     ) { visibleDestinations ->
         NavigationBar(tonalElevation = 8.dp) {
             visibleDestinations.forEach { destination ->
@@ -267,7 +236,8 @@ private fun SideBar(navController: NavHostController, modifier: Modifier = Modif
 
     Crossfade(
         targetState = visibleDestinations,
-        label = "SideBarStateCrossfade"
+        label = "SideBarStateCrossfade",
+        animationSpec = tween(0)
     ) { visibleDestinations ->
         NavigationRail(
             modifier = modifier,

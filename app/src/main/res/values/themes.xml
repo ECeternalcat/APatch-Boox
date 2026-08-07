@@ -1,8 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
+    <style name="Animation.NoAnimation" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@null</item>
+        <item name="android:activityOpenExitAnimation">@null</item>
+        <item name="android:activityCloseEnterAnimation">@null</item>
+        <item name="android:activityCloseExitAnimation">@null</item>
+        <item name="android:taskOpenEnterAnimation">@null</item>
+        <item name="android:taskOpenExitAnimation">@null</item>
+        <item name="android:taskCloseEnterAnimation">@null</item>
+        <item name="android:taskCloseExitAnimation">@null</item>
+        <item name="android:taskToFrontEnterAnimation">@null</item>
+        <item name="android:taskToFrontExitAnimation">@null</item>
+        <item name="android:taskToBackEnterAnimation">@null</item>
+        <item name="android:taskToBackExitAnimation">@null</item>
+        <item name="android:wallpaperOpenEnterAnimation">@null</item>
+        <item name="android:wallpaperOpenExitAnimation">@null</item>
+        <item name="android:wallpaperCloseEnterAnimation">@null</item>
+        <item name="android:wallpaperCloseExitAnimation">@null</item>
+        <item name="android:wallpaperIntraOpenEnterAnimation">@null</item>
+        <item name="android:wallpaperIntraOpenExitAnimation">@null</item>
+        <item name="android:wallpaperIntraCloseEnterAnimation">@null</item>
+        <item name="android:wallpaperIntraCloseExitAnimation">@null</item>
+    </style>
+
     <style name="Theme.APatch" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
+        <item name="android:windowAnimationStyle">@style/Animation.NoAnimation</item>
     </style>
 
     <style name="Theme.Splash" parent="Theme.SplashScreen">

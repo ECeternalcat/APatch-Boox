@@ -4,11 +4,14 @@ import android.os.Build
 import android.system.Os
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +50,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -66,6 +70,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
@@ -82,6 +87,7 @@ import me.bmax.apatch.APApplication
 import me.bmax.apatch.Natives
 import me.bmax.apatch.R
 import me.bmax.apatch.apApp
+import me.bmax.apatch.util.APatchKeyHelper
 import me.bmax.apatch.ui.component.ProvideMenuShape
 import me.bmax.apatch.ui.component.WarningCard
 import me.bmax.apatch.ui.component.rememberConfirmDialog
@@ -118,6 +124,9 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             WarningCard()
             BooxWarningCard()
             KStatusCard(kpState, apState, navigator)
+            if (kpState == APApplication.State.UNKNOWN_STATE) {
+                BooxSuperKeyCard()
+            }
             if (kpState != APApplication.State.UNKNOWN_STATE && apState != APApplication.State.ANDROIDPATCH_INSTALLED) {
                 AStatusCard(apState)
             }
@@ -275,30 +284,15 @@ private fun KStatusCard(
         UninstallDialog(showDialog = showUninstallDialog, navigator)
     }
 
-    val cardBackgroundColor = when (kpState) {
-        APApplication.State.KERNELPATCH_INSTALLED -> {
-            MaterialTheme.colorScheme.primary
-        }
-
-        APApplication.State.KERNELPATCH_NEED_UPDATE, APApplication.State.KERNELPATCH_NEED_REBOOT -> {
-            MaterialTheme.colorScheme.secondary
-        }
-
-        else -> {
-            MaterialTheme.colorScheme.secondaryContainer
-        }
-    }
-
     ElevatedCard(
         onClick = {
             if (kpState != APApplication.State.KERNELPATCH_INSTALLED) {
                 navigator.navigate(InstallModeSelectScreenDestination)
             }
         },
-        colors = CardDefaults.elevatedCardColors(containerColor = cardBackgroundColor),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (kpState == APApplication.State.UNKNOWN_STATE) 0.dp else 6.dp
-        )
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier
@@ -447,9 +441,9 @@ private fun KStatusCard(
 @Composable
 private fun AStatusCard(apState: APApplication.State) {
     ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = run {
-            MaterialTheme.colorScheme.secondaryContainer
-        })
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier
@@ -595,10 +589,10 @@ fun WarningCard() {
     if (show) {
         ElevatedCard(
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 6.dp
-            ), colors = CardDefaults.elevatedCardColors(containerColor = run {
-                MaterialTheme.colorScheme.error
-            })
+                defaultElevation = 0.dp
+            ), colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface
+            ),
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(12.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -649,8 +643,9 @@ fun BooxWarningCard() {
     var show by rememberSaveable { mutableStateOf(true) }
     if (show) {
         ElevatedCard(
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.error)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(12.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -688,6 +683,78 @@ fun BooxWarningCard() {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun BooxSuperKeyCard() {
+    var keyInput by remember { mutableStateOf("") }
+    var feedback by remember { mutableStateOf<Int?>(null) }
+
+    ElevatedCard(
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(12.dp))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.boox_superkey_card_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.boox_superkey_card_summary),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = keyInput,
+                onValueChange = { keyInput = it; feedback = null },
+                label = { Text(stringResource(R.string.boox_superkey_hint)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                isError = feedback == R.string.boox_superkey_invalid || feedback == R.string.boox_superkey_wrong,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (feedback != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(feedback!!),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (feedback == R.string.boox_superkey_success) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    val key = keyInput.trim()
+                    val valid = key.length in 8..63 &&
+                            key.any { it.isDigit() } && key.any { it.isLetter() }
+                    if (!valid) {
+                        feedback = R.string.boox_superkey_invalid
+                        return@Button
+                    }
+                    if (Natives.nativeReady(key)) {
+                        APatchKeyHelper.setSharedPreferences(APApplication.sharedPreferences)
+                        APatchKeyHelper.writeSPSuperKey(key)
+                        APApplication.superKey = key
+                        feedback = R.string.boox_superkey_success
+                    } else {
+                        feedback = R.string.boox_superkey_wrong
+                    }
+                }
+            ) {
+                Text(stringResource(R.string.boox_superkey_apply))
             }
         }
     }
@@ -780,8 +847,8 @@ fun UpdateCard() {
 
     AnimatedVisibility(
         visible = newVersionCode > currentVersionCode,
-        enter = fadeIn() + expandVertically(),
-        exit = shrinkVertically() + fadeOut()
+        enter = EnterTransition.None,
+        exit = ExitTransition.None
     ) {
         val updateDialog = rememberConfirmDialog(onConfirm = { uriHandler.openUri(newVersionUrl) })
         WarningCard(

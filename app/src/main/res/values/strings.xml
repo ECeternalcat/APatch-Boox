@@ -254,4 +254,13 @@
     <string name="crash_handle_title">App crashed…</string>
     <string name="crash_handle_copy">Copy crash log</string>
     <string name="crash_handle_copied">Crash log copied to clipboard.</string>
+
+    <!-- BOOX: Custom SuperKey -->
+    <string name="boox_superkey_card_title">KernelPatch Not Detected</string>
+    <string name="boox_superkey_card_summary">APatch Boox uses a different signing certificate from the official APatch, so signature-based authorization does not work.\n\nPlease re-patch your boot image using the official APatch Manager with \"Custom SuperKey\" enabled, then enter the same key below.</string>
+    <string name="boox_superkey_hint">Enter your Custom SuperKey</string>
+    <string name="boox_superkey_apply">Apply</string>
+    <string name="boox_superkey_invalid">SuperKey must be 8–63 characters with letters and numbers</string>
+    <string name="boox_superkey_wrong">Authentication failed. Please verify the key matches the one used during patching.</string>
+    <string name="boox_superkey_success">SuperKey accepted.</string>
 </resources>
