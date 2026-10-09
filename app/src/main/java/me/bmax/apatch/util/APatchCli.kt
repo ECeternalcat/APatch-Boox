@@ -34,12 +34,16 @@ class RootShellInitializer : Shell.Initializer() {
     }
 }
 
-fun createRootShell(globalMnt: Boolean = false): Shell {
+@JvmOverloads
+fun createRootShell(
+    globalMnt: Boolean = false,
+    superKey: String = APApplication.superKey
+): Shell {
     Shell.enableVerboseLogging = BuildConfig.DEBUG
     val builder = Shell.Builder.create().setInitializers(RootShellInitializer::class.java)
     return try {
         builder.build(
-            SUPERCMD, APApplication.superKey, "-Z", APApplication.MAGISK_SCONTEXT
+            SUPERCMD, superKey, "-Z", APApplication.MAGISK_SCONTEXT
         )
     } catch (e: Throwable) {
         Log.e(TAG, "su failed: ", e)
@@ -47,11 +51,11 @@ fun createRootShell(globalMnt: Boolean = false): Shell {
             Log.e(TAG, "retry compat kpatch su")
             if (globalMnt) {
                 builder.build(
-                    getKPatchPath(), APApplication.superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT, "--mount-master"
+                    getKPatchPath(), superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT, "--mount-master"
                 )
             }else{
                 builder.build(
-                    getKPatchPath(), APApplication.superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT
+                    getKPatchPath(), superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT
                 )
             }
         } catch (e: Throwable) {
@@ -71,14 +75,27 @@ fun createRootShell(globalMnt: Boolean = false): Shell {
     }
 }
 
-private fun createMainRootShell() : Shell {
+private fun createMainRootShell(superKey: String = APApplication.superKey): Shell {
     val builder = Shell.Builder.create()
         .setInitializers(RootShellInitializer::class.java)
+    // libsu 6.0.0 only caches a shell built while MainShell.get() itself is
+    // initializing (setCached is gated on isInitMain), so the shell built here
+    // never registers itself. Register a key-correct builder up front so a
+    // later rebuild of a dead main shell re-creates this exact command instead
+    // of libsu's default (non-root "sh"); setBuilder throws ISE when another
+    // shell already owns the registration, which the explicit registration
+    // below then replaces.
+    builder.setCommands(SUPERCMD, superKey, "-Z", APApplication.MAGISK_SCONTEXT)
+    try {
+        MainShell.setBuilder(builder)
+    } catch (e: IllegalStateException) {
+        Log.w(TAG, "Main shell already set, skipping setBuilder", e)
+    }
     val shell = try {
-        builder.build(SUPERCMD, APApplication.superKey, "-Z", APApplication.MAGISK_SCONTEXT)
+        builder.build(SUPERCMD, superKey, "-Z", APApplication.MAGISK_SCONTEXT)
     } catch (e: Throwable) {
         Log.e(TAG, "su failed: ", e)
-        builder.setCommands(getKPatchPath(), APApplication.superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT)
+        builder.setCommands(getKPatchPath(), superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT)
         try {
             builder.build()
         } catch (e: Throwable) {
@@ -93,49 +110,136 @@ private fun createMainRootShell() : Shell {
             }
         }
     }
-
-    try {
-        MainShell.setBuilder(builder)
-    } catch (e: IllegalStateException) {
-        Log.w(TAG, "Main shell already set, skipping setBuilder", e)
-    }
+    registerMainShellCache(shell, builder)
     return shell
+}
+
+/**
+ * Points libsu MainShell's cached main shell at [newMain] and its builder at
+ * [newBuilder]. Without this explicit registration the libsu cache can keep
+ * holding an independent shell (e.g. the plain non-root "sh" libsu builds on
+ * the first SuFile access before authentication), so Shell.getShell() users
+ * would never see the authenticated shell cached in APatchCli.SHELL. A
+ * replaced independent shell can never be handed out again afterwards and is
+ * closed instead of leaking its process.
+ */
+private fun registerMainShellCache(newMain: Shell, newBuilder: Any?) {
+    val clazz = MainShell::class.java
+    val mainShellField = clazz.getDeclaredField("mainShell")
+    mainShellField.isAccessible = true
+    @Suppress("UNCHECKED_CAST")
+    val previous = (mainShellField.get(null) as Array<Any?>)[0] as? Shell
+    @Suppress("UNCHECKED_CAST")
+    (mainShellField.get(null) as Array<Any?>)[0] = newMain
+    mainShellField.isAccessible = false
+
+    clazz.getDeclaredField("mainBuilder").apply {
+        isAccessible = true
+        set(null, newBuilder)
+        isAccessible = false
+    }
+
+    if (previous != null && previous !== newMain) {
+        Log.i(TAG, "Closing replaced MainShell cached shell")
+        runCatching { previous.close() }
+    }
+}
+
+/**
+ * Clears libsu MainShell's private registration so the stale
+ * pre-authentication shell can never be handed out while APatchCli's caches
+ * are being replaced (the replacement is registered again right after the
+ * new main shell is built).
+ */
+internal fun resetMainShellCache() {
+    val clazz = MainShell::class.java
+    clazz.getDeclaredField("isInitMain").apply {
+        isAccessible = true
+        setBoolean(null, false)
+        isAccessible = false
+    }
+
+    clazz.getDeclaredField("mainShell").apply {
+        isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val arr = get(null) as Array<Any?>
+        arr[0] = null
+        isAccessible = false
+    }
+
+    clazz.getDeclaredField("mainBuilder").apply {
+        isAccessible = true
+        set(null, null)
+        isAccessible = false
+    }
+}
+
+/**
+ * Rebuilds both cached shells after the authorization state changed
+ * (APatchCli.refresh). Ordering contract, unit-tested against fakes:
+ * - the replacement global-mount shell is built first and the replacement
+ *   main shell last (createMainRootShell registers its shell as libsu's cached
+ *   main shell, so the main registration ends up owning the new main shell,
+ *   not a transient global shell),
+ * - [resetMainShellRegistration] runs immediately before the main build,
+ * - the new pair is published only once both replacements exist, and the
+ *   stale shells are closed afterwards. This orders refresh writers and avoids
+ *   publishing a partial pair, but cannot make unsynchronized external
+ *   MainShell readers atomic with these cache updates. A failed main build
+ *   closes the newly built global shell and preserves the old published pair.
+ */
+internal fun refreshShellCaches(
+    currentMain: Shell,
+    currentGlobal: Shell,
+    buildGlobalShell: () -> Shell,
+    buildMainShell: () -> Shell,
+    resetMainShellRegistration: () -> Unit,
+    publish: (main: Shell, global: Shell) -> Unit,
+) {
+    val newGlobal = buildGlobalShell()
+    val newMain = try {
+        resetMainShellRegistration()
+        buildMainShell()
+    } catch (t: Throwable) {
+        runCatching { newGlobal.close() }
+        throw t
+    }
+    publish(newMain, newGlobal)
+    runCatching { currentMain.close() }
+    runCatching { currentGlobal.close() }
 }
 
 object APatchCli {
     @Volatile
     var SHELL: Shell = createMainRootShell()
-    val GLOBAL_MNT_SHELL: Shell = createRootShell(true)
+        private set
 
-    // Serialized so a reader can never observe the half-reset MainShell (private
-    // fields cleared via reflection) between the reset and the SHELL swap.
+    // Refreshable so a successful authentication can rebuild it together with
+    // SHELL (it used to be a val and kept the pre-auth fallback shell forever);
+    // @Volatile keeps the lock-free getRootShell readers safe.
+    @Volatile
+    var GLOBAL_MNT_SHELL: Shell = createRootShell(true)
+        private set
+
+    // Serialized to prevent concurrent refresh writers from interleaving the
+    // MainShell registration reset with shell creation. Lock-free readers of
+    // the two volatile references (and direct libsu readers) are not coordinated
+    // by this monitor; this keeps the critical section localized to writers.
     @Synchronized
-    fun refresh() {
-        val tmp = SHELL
-
-        val clazz = MainShell::class.java // reset MainShell
-        clazz.getDeclaredField("isInitMain").apply {
-            isAccessible = true
-            setBoolean(null, false)
-            isAccessible = false
+    fun refresh(candidateKey: String? = null) {
+        // The candidate key lets manual authentication rebuild both caches with
+        // the new key BEFORE APApplication.superKey publishes the ready state.
+        val key = candidateKey ?: APApplication.superKey
+        refreshShellCaches(
+            currentMain = SHELL,
+            currentGlobal = GLOBAL_MNT_SHELL,
+            buildGlobalShell = { createRootShell(globalMnt = true, superKey = key) },
+            buildMainShell = { createMainRootShell(superKey = key) },
+            resetMainShellRegistration = ::resetMainShellCache,
+        ) { main, global ->
+            SHELL = main
+            GLOBAL_MNT_SHELL = global
         }
-
-        clazz.getDeclaredField("mainShell").apply {
-            isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            val arr = get(null) as Array<Any?>
-            arr[0] = null
-            isAccessible = false
-        }
-
-        clazz.getDeclaredField("mainBuilder").apply {
-            isAccessible = true
-            set(null, null)
-            isAccessible = false
-        }
-
-        SHELL = createMainRootShell()
-        tmp.close()
     }
 }
 

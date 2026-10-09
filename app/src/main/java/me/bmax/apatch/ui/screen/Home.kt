@@ -1,7 +1,10 @@
 package me.bmax.apatch.ui.screen
 
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.system.Os
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
@@ -94,6 +97,7 @@ import me.bmax.apatch.APApplication
 import me.bmax.apatch.Natives
 import me.bmax.apatch.R
 import me.bmax.apatch.apApp
+import me.bmax.apatch.util.APatchCli
 import me.bmax.apatch.util.APatchKeyHelper
 import me.bmax.apatch.ui.component.ProvideMenuShape
 import me.bmax.apatch.ui.component.WarningCard
@@ -111,6 +115,7 @@ import me.bmax.apatch.util.migrateStockBootBackup
 import me.bmax.apatch.util.reboot
 import me.bmax.apatch.util.softReboot
 import me.bmax.apatch.util.ui.APDialogBlurBehindUtils
+import kotlin.concurrent.thread
 
 private val managerVersion = getManagerVersion()
 
@@ -814,6 +819,7 @@ fun BooxWarningCard() {
 fun BooxSuperKeyCard() {
     var keyInput by remember { mutableStateOf("") }
     var feedback by remember { mutableStateOf<Int?>(null) }
+    var applying by remember { mutableStateOf(false) }
 
     ElevatedCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -858,6 +864,7 @@ fun BooxSuperKeyCard() {
             }
             Spacer(Modifier.height(12.dp))
             Button(
+                enabled = !applying,
                 onClick = {
                     val key = keyInput.trim()
                     val valid = key.length in 8..63 &&
@@ -866,13 +873,49 @@ fun BooxSuperKeyCard() {
                         feedback = R.string.boox_superkey_invalid
                         return@Button
                     }
-                    if (Natives.nativeReady(key)) {
-                        APatchKeyHelper.setSharedPreferences(APApplication.sharedPreferences)
-                        APatchKeyHelper.writeSPSuperKey(key)
-                        APApplication.superKey = key
-                        feedback = R.string.boox_superkey_success
-                    } else {
-                        feedback = R.string.boox_superkey_wrong
+                    applying = true
+                    feedback = null
+                    val mainHandler = Handler(Looper.getMainLooper())
+                    // Apply off the Compose thread (shell creation blocks and
+                    // must not freeze the UI for tens of seconds). The cached
+                    // shells are rebuilt with the candidate key FIRST and the
+                    // authenticated state is only published once the refresh
+                    // succeeded, so no screen or version check can race on
+                    // stale shells. Everything is caught and fed back as key
+                    // feedback: an uncaught background exception would hit the
+                    // app's global crash handler.
+                    thread(name = "boox-superkey-apply") {
+                        fun post(result: Int?, publishKey: Boolean = false) {
+                            mainHandler.post {
+                                try {
+                                    // The setter publishes LiveData with setValue,
+                                    // which must run on the Android main thread.
+                                    if (publishKey) APApplication.superKey = key
+                                    feedback = result
+                                } catch (t: Throwable) {
+                                    Log.e("BooxSuperKeyCard", "failed to publish SuperKey", t)
+                                    feedback = R.string.boox_superkey_wrong
+                                } finally {
+                                    applying = false
+                                }
+                            }
+                        }
+                        try {
+                            if (!Natives.nativeReady(key)) {
+                                post(R.string.boox_superkey_wrong)
+                                return@thread
+                            }
+                            APatchCli.refresh(candidateKey = key)
+                            check(APatchCli.SHELL.isRoot && APatchCli.GLOBAL_MNT_SHELL.isRoot) {
+                                "Authenticated key could not create root shells"
+                            }
+                            APatchKeyHelper.setSharedPreferences(APApplication.sharedPreferences)
+                            APatchKeyHelper.writeSPSuperKey(key)
+                            post(R.string.boox_superkey_success, publishKey = true)
+                        } catch (t: Throwable) {
+                            Log.e("BooxSuperKeyCard", "failed to apply SuperKey", t)
+                            post(R.string.boox_superkey_wrong)
+                        }
                     }
                 }
             ) {

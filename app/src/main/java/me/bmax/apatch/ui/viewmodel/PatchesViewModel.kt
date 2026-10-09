@@ -58,7 +58,38 @@ class PatchesViewModel : ViewModel() {
     var bootDev by mutableStateOf("")
     var kimgInfo by mutableStateOf(KPModel.KImgInfo("", false))
     var kpimgInfo by mutableStateOf(KPModel.KPImgInfo("", "", "", "", ""))
-    var superkey by mutableStateOf("")
+
+    // Single source of truth for the patch SuperKey. [superkeyInput] is the raw
+    // key field content (what SetSuperKeyView displays, bound directly so the
+    // displayed key can never diverge from the view model); [superkey] is the
+    // validated key the patch will actually use. Writes funnel through
+    // onSuperkeyInput (user) and parseBootimg (discovered key) only.
+    private val _superkey = mutableStateOf("")
+    var superkey: String
+        get() = _superkey.value
+        private set(value) { _superkey.value = value }
+
+    private val _superkeyInput = mutableStateOf("")
+    var superkeyInput: String
+        get() = _superkeyInput.value
+        private set(value) { _superkeyInput.value = value }
+
+    // Any keystroke from the key field makes every later parse result lose
+    // against the user's edit — including mid-typing partial input.
+    @Volatile
+    private var superkeyEditedByUser = false
+
+    private val superkeyLock = Any()
+
+    /** Called by SetSuperKeyView for every change of the key field. */
+    fun onSuperkeyInput(text: String) {
+        synchronized(superkeyLock) {
+            superkeyEditedByUser = true
+            superkeyInput = text
+            superkey = if (checkSuperKeyValidation(text)) text else ""
+        }
+    }
+
     var existedExtras = mutableStateListOf<KPModel.IExtraInfo>()
     var newExtras = mutableStateListOf<KPModel.IExtraInfo>()
     var newExtrasFileName = mutableListOf<String>()
@@ -155,8 +186,16 @@ class PatchesViewModel : ViewModel() {
             if (kimgInfo.patched) {
                 val superkey = ini["kpimg"]?.getOrDefault("superkey", "") ?: ""
                 kpimgInfo.superKey = superkey
-                if (checkSuperKeyValidation(superkey)) {
-                    this.superkey = superkey
+                // The fork renders the key input before this async parse
+                // finishes. A user edit (even mid-typing partial input) always
+                // wins over the late-arriving parsed value; only an untouched
+                // field is filled with the discovered key. The field binds
+                // superkeyInput directly, so the display follows automatically.
+                synchronized(superkeyLock) {
+                    if (parsedSuperkeyAdoptable(superkeyEditedByUser, superkey)) {
+                        this.superkey = superkey
+                        this.superkeyInput = superkey
+                    }
                 }
                 var kpmNum = kernel["extra_num"]?.toInt()
                 if (kpmNum == null) {
@@ -196,10 +235,6 @@ class PatchesViewModel : ViewModel() {
         } else {
             error += result.err.joinToString("\n")
         }
-    }
-
-    val checkSuperKeyValidation: (superKey: String) -> Boolean = { superKey ->
-        superKey.length in 8..63 && superKey.any { it.isDigit() } && superKey.any { it.isLetter() }
     }
 
     fun copyAndParseBootimg(uri: Uri) {
@@ -344,6 +379,22 @@ class PatchesViewModel : ViewModel() {
                     running = false
                 }
             }
+        }
+    }
+
+    companion object {
+        val checkSuperKeyValidation: (superKey: String) -> Boolean = { superKey ->
+            superKey.length in 8..63 && superKey.any { it.isDigit() } && superKey.any { it.isLetter() }
+        }
+
+        /**
+         * Whether a superkey [parsed] from the boot image may fill in the patch
+         * key: only when the user has not edited the key field at all — any
+         * edit, even mid-typing partial input, wins over the late-arriving
+         * parsed value — and the parsed value is itself a valid key.
+         */
+        internal fun parsedSuperkeyAdoptable(userEdited: Boolean, parsed: String): Boolean {
+            return !userEdited && checkSuperKeyValidation(parsed)
         }
     }
 

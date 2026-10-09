@@ -1,6 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
 import com.android.build.gradle.tasks.PackageApplication
+import me.bmax.apatch.buildlogic.StampManagedDownload
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
 
@@ -194,15 +195,16 @@ fun registerDownloadTask(
         val stampFile = File(stampDir, "${destFile.name}.url")
 
         doLast {
-            val stampMatches = stampFile.exists() && stampFile.readText() == srcUrl
-            if (!destFile.exists() || !stampMatches) {
-                println(" - Downloading $srcUrl to ${destFile.absolutePath}")
-                downloadFileRetry(srcUrl, destFile)
-                stampDir.mkdirs()
-                stampFile.writeText(srcUrl)
-                println(" - Download completed.")
-            } else {
-                println(" - File is up-to-date, skipping download.")
+            // Reuse requires artifact + matching stamp, and the artifact only
+            // appears through a temporary file after a complete download, so an
+            // interrupted re-download can never leave a partial file that the
+            // next build would treat as up-to-date.
+            StampManagedDownload.ensure(
+                destFile = destFile,
+                stampFile = stampFile,
+                stampContent = srcUrl,
+            ) { tmpFile ->
+                downloadFileRetry(srcUrl, tmpFile)
             }
         }
     }
@@ -273,24 +275,24 @@ tasks.register("downloadJailbreakKo") {
     doLast {
         val assetsDir = File("${project.projectDir}/src/main/assets")
         assetsDir.mkdirs()
-        // Re-download when the KernelPatch version changes, not only when missing,
-        // so the bundled .ko files always match the kpimg/kptools being shipped.
-        val versionStamp = File(File(project.layout.buildDirectory.asFile.get(), "downloadStamps"), "jailbreak_ko.version")
-        val versionChanged = !versionStamp.exists() || versionStamp.readText() != kernelPatchVersion
+        val stampDir = File(project.layout.buildDirectory.asFile.get(), "downloadStamps")
+        // Each .ko is stamped with the KernelPatch version it was fetched for,
+        // so a version bump invalidates them all without a separate global
+        // stamp, and only fully downloaded files are ever marked reusable
+        // (downloads go through a temporary file and are stamped on success).
+        val legacyVersionStamp = File(stampDir, "jailbreak_ko.version")
         jailbreakKmis.forEach { kmi ->
             val srcUrl =
                 "https://github.com/bmax121/KernelPatch/releases/download/$kernelPatchVersion/${kmi}_kernelpatch.ko"
             val destFile = File(assetsDir, "${kmi}_kernelpatch.ko")
-            if (!destFile.exists() || versionChanged) {
-                println(" - Downloading $srcUrl to ${destFile.absolutePath}")
-                downloadFileRetry(srcUrl, destFile)
-            } else {
-                println(" - $kmi kernelpatch.ko already present.")
+            StampManagedDownload.ensure(
+                destFile = destFile,
+                stampFile = File(stampDir, "${destFile.name}.version"),
+                stampContent = kernelPatchVersion,
+                legacyStamp = legacyVersionStamp,
+            ) { tmpFile ->
+                downloadFileRetry(srcUrl, tmpFile)
             }
-        }
-        if (versionChanged) {
-            versionStamp.parentFile.mkdirs()
-            versionStamp.writeText(kernelPatchVersion)
         }
     }
 }
@@ -394,4 +396,6 @@ dependencies {
     implementation(libs.ini4j)
 
     compileOnly(libs.cxx)
+
+    testImplementation("junit:junit:4.13.2")
 }

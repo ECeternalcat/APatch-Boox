@@ -280,11 +280,15 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                 // patch start
                 if (mode != PatchesViewModel.PatchMode.UNPATCH) {
                     // BOOX: always render the start button so it is discoverable;
-                    // it stays disabled until a valid custom SuperKey is set.
-                    val isKeyReady = !needKey || viewModel.superkey.isNotEmpty()
+                    // it stays disabled until a valid custom SuperKey is set AND the
+                    // async prepare/parse produced a boot image to patch, so the
+                    // fork's always-visible button cannot start before preparation
+                    // finished or after it errored out (no parsed boot image).
+                    val isKeyReady = viewModel.superkey.isNotEmpty()
+                    val isBootReady = viewModel.kimgInfo.banner.isNotEmpty()
                     StartButton(
                         text = stringResource(id = R.string.patch_start_patch_btn),
-                        enabled = isKeyReady,
+                        enabled = isKeyReady && isBootReady && !viewModel.running && viewModel.error.isEmpty(),
                     ) {
                         viewModel.doPatch(mode, needKey)
                     }
@@ -493,8 +497,6 @@ private fun ExtraItem(extra: KPModel.IExtraInfo, existed: Boolean, onDelete: () 
 
 @Composable
 private fun SetSuperKeyView(viewModel: PatchesViewModel) {
-    var skey by remember { mutableStateOf(viewModel.superkey) }
-    var showWarn by remember { mutableStateOf(!viewModel.checkSuperKeyValidation(skey)) }
     var keyVisible by remember { mutableStateOf(false) }
     ElevatedCard(
         colors = CardDefaults.elevatedCardColors(containerColor = run {
@@ -516,7 +518,11 @@ private fun SetSuperKeyView(viewModel: PatchesViewModel) {
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
-            if (showWarn) {
+            // The field binds the view model state directly (single source of
+            // truth): the displayed text is always exactly what the view model
+            // holds, and the warning shows whenever the raw input is not a
+            // valid key yet.
+            if (!PatchesViewModel.checkSuperKeyValidation(viewModel.superkeyInput)) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     color = Color.Red,
@@ -532,21 +538,12 @@ private fun SetSuperKeyView(viewModel: PatchesViewModel) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 6.dp),
-                        value = skey,
+                        value = viewModel.superkeyInput,
                         label = { Text(stringResource(id = R.string.patch_set_superkey)) },
                         visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         shape = RoundedCornerShape(50.0f),
-                        onValueChange = {
-                            skey = it
-                            if (viewModel.checkSuperKeyValidation(it)) {
-                                viewModel.superkey = it
-                                showWarn = false
-                            } else {
-                                viewModel.superkey = ""
-                                showWarn = true
-                            }
-                        },
+                        onValueChange = viewModel::onSuperkeyInput,
                     )
                     IconButton(
                         modifier = Modifier

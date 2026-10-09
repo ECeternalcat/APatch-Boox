@@ -28,6 +28,34 @@ lateinit var apApp: APApplication
 
 const val TAG = "APatch"
 
+/**
+ * Kernel-side alias key: the kernel authorizes supercalls made with the
+ * literal key "su" by the calling UID (su allowlist / recorded signature)
+ * instead of comparing it against the patched-in SuperKey. The JNI layer
+ * substitutes "su" only for [Natives.nativeReady] when given an empty key;
+ * every other native passes the key through and the supercall rejects an
+ * empty key with -EINVAL. Resolved keys must therefore never be published as
+ * empty while claiming a working (installed) state.
+ */
+const val KERNEL_SU_ALIAS_KEY = "su"
+
+/**
+ * Pure decision core of [APApplication.resolveSuperKey] so the fallback
+ * policy stays unit-testable without JNI or Android:
+ * 1. a stored custom SuperKey that still authenticates always wins and is
+ *    never cleared merely because "su" would work too,
+ * 2. otherwise the "su" alias is adopted iff [isReady] says the kernel
+ *    authorizes this exact caller under the alias (the kernel verifies the
+ *    caller itself; nothing user-supplied is accepted here),
+ * 3. otherwise no key exists and callers must surface key entry instead of an
+ *    installed state.
+ */
+internal fun resolveSuperKeyPolicy(savedKey: String?, isReady: (String) -> Boolean): String {
+    if (!savedKey.isNullOrEmpty() && isReady(savedKey)) return savedKey
+    if (isReady(KERNEL_SU_ALIAS_KEY)) return KERNEL_SU_ALIAS_KEY
+    return ""
+}
+
 class APApplication : Application(), Thread.UncaughtExceptionHandler {
     lateinit var okhttpClient: OkHttpClient
 
@@ -247,20 +275,23 @@ class APApplication : Application(), Thread.UncaughtExceptionHandler {
         /**
          * Resolve the SuperKey used to authenticate against the running kernel.
          *
-         * BOOX build: signature-based "su" auth is skipped because the BOOX APK
-         * is signed with a different certificate than the official manager.
-         * Only a stored custom SuperKey (set by the user) is used.
+         * BOOX build: signature-based auth is skipped because the BOOX APK is
+         * signed with a different certificate than the official manager, so the
+         * stored custom SuperKey is preferred; see [resolveSuperKeyPolicy] for
+         * the su-alias fallback that keeps the published auth state coherent
+         * with what subsequent natives actually accept.
          */
         private fun resolveSuperKey(): String {
             APatchKeyHelper.setSharedPreferences(sharedPreferences)
             val savedKey = APatchKeyHelper.readSPSuperKey()
 
-            if (!savedKey.isNullOrEmpty() && Natives.nativeReady(savedKey)) {
-                Log.i(TAG, "BOOX: using stored custom SuperKey")
-                return savedKey
+            val resolved = resolveSuperKeyPolicy(savedKey) { Natives.nativeReady(it) }
+            when {
+                resolved.isEmpty() -> Log.i(TAG, "BOOX: no stored SuperKey and UID not su-authorized")
+                resolved == KERNEL_SU_ALIAS_KEY -> Log.i(TAG, "BOOX: manager UID already su-authorized, using kernel su alias")
+                else -> Log.i(TAG, "BOOX: using stored custom SuperKey")
             }
-
-            return ""
+            return resolved
         }
     }
 
