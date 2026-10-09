@@ -186,23 +186,26 @@ fun registerDownloadTask(
 ) {
     project.tasks.register(taskName) {
         val destFile = File(destPath)
+        // Stamp the exact source URL next to the artifact: a Last-Modified/mtime
+        // comparison cannot detect a version bump (same asset name, new release),
+        // so stale kpimg/kptools from an older KernelPatch would silently ship.
+        // Stamps live in the build dir so they never get packaged into the APK.
+        val stampDir = File(project.layout.buildDirectory.asFile.get(), "downloadStamps")
+        val stampFile = File(stampDir, "${destFile.name}.url")
 
         doLast {
-            if (!destFile.exists() || isFileUpdated(srcUrl, destFile)) {
+            val stampMatches = stampFile.exists() && stampFile.readText() == srcUrl
+            if (!destFile.exists() || !stampMatches) {
                 println(" - Downloading $srcUrl to ${destFile.absolutePath}")
-                downloadFile(srcUrl, destFile)
+                downloadFileRetry(srcUrl, destFile)
+                stampDir.mkdirs()
+                stampFile.writeText(srcUrl)
                 println(" - Download completed.")
             } else {
                 println(" - File is up-to-date, skipping download.")
             }
         }
     }
-}
-
-fun isFileUpdated(url: String, localFile: File): Boolean {
-    val connection = URI.create(url).toURL().openConnection()
-    val remoteLastModified = connection.getHeaderFieldDate("Last-Modified", 0L)
-    return remoteLastModified > localFile.lastModified()
 }
 
 fun downloadFile(url: String, destFile: File) {
@@ -270,16 +273,24 @@ tasks.register("downloadJailbreakKo") {
     doLast {
         val assetsDir = File("${project.projectDir}/src/main/assets")
         assetsDir.mkdirs()
+        // Re-download when the KernelPatch version changes, not only when missing,
+        // so the bundled .ko files always match the kpimg/kptools being shipped.
+        val versionStamp = File(File(project.layout.buildDirectory.asFile.get(), "downloadStamps"), "jailbreak_ko.version")
+        val versionChanged = !versionStamp.exists() || versionStamp.readText() != kernelPatchVersion
         jailbreakKmis.forEach { kmi ->
             val srcUrl =
                 "https://github.com/bmax121/KernelPatch/releases/download/$kernelPatchVersion/${kmi}_kernelpatch.ko"
             val destFile = File(assetsDir, "${kmi}_kernelpatch.ko")
-            if (!destFile.exists()) {
+            if (!destFile.exists() || versionChanged) {
                 println(" - Downloading $srcUrl to ${destFile.absolutePath}")
                 downloadFileRetry(srcUrl, destFile)
             } else {
                 println(" - $kmi kernelpatch.ko already present.")
             }
+        }
+        if (versionChanged) {
+            versionStamp.parentFile.mkdirs()
+            versionStamp.writeText(kernelPatchVersion)
         }
     }
 }
