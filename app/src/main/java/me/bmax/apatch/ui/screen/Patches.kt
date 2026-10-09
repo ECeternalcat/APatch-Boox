@@ -8,11 +8,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,7 +81,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.bmax.apatch.R
-import me.bmax.apatch.ui.component.SwitchItem
 import me.bmax.apatch.ui.component.WarningCard
 import me.bmax.apatch.ui.viewmodel.KPModel
 import me.bmax.apatch.ui.viewmodel.PatchesViewModel
@@ -206,7 +200,10 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                 KernelImageView(viewModel.kimgInfo)
             }
 
-            if (mode != PatchesViewModel.PatchMode.UNPATCH && viewModel.kimgInfo.banner.isNotEmpty()) {
+            // BOOX: custom SuperKey is mandatory, so keep the key input visible for
+            // every patch mode even before/without boot.img parsing, otherwise the
+            // disabled start button below would leave the user stuck.
+            if (mode != PatchesViewModel.PatchMode.UNPATCH) {
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.elevatedCardColors(
@@ -278,11 +275,14 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
             if (!viewModel.patching && !viewModel.patchdone) {
                 // patch start
                 if (mode != PatchesViewModel.PatchMode.UNPATCH) {
+                    // BOOX: always render the start button so it is discoverable;
+                    // it stays disabled until a valid custom SuperKey is set.
                     val isKeyReady = !needKey || viewModel.superkey.isNotEmpty()
-                    if (isKeyReady) {
-                        StartButton(stringResource(id = R.string.patch_start_patch_btn)) {
-                            viewModel.doPatch(mode, needKey)
-                        }
+                    StartButton(
+                        text = stringResource(id = R.string.patch_start_patch_btn),
+                        enabled = isKeyReady,
+                    ) {
+                        viewModel.doPatch(mode, needKey)
                     }
                 }
                 // unpatch
@@ -330,13 +330,14 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
 
 
 @Composable
-private fun StartButton(text: String, onClick: () -> Unit) {
+private fun StartButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth(),
         horizontalAlignment = Alignment.End
     ) {
         Button(
+            enabled = enabled,
             onClick = onClick,
             content = {
                 Text(text = text)
