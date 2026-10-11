@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -36,12 +36,11 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Button
+import me.bmax.apatch.ui.component.EinkButton as Button
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.OutlinedCard as ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import me.bmax.apatch.ui.component.EinkExtendedFloatingActionButton as ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +48,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import me.bmax.apatch.ui.component.EinkTextButton as TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +58,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -81,6 +82,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.bmax.apatch.R
 import me.bmax.apatch.ui.component.WarningCard
+import me.bmax.apatch.ui.component.EinkLogView
+import me.bmax.apatch.ui.component.coalescedLogSnapshots
+import me.bmax.apatch.ui.component.PatchActionState
 import me.bmax.apatch.ui.viewmodel.KPModel
 import me.bmax.apatch.ui.viewmodel.PatchesViewModel
 import me.bmax.apatch.util.Version
@@ -107,7 +111,6 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
             ) {
                 WarningCard(
                     message = stringResource(R.string.jailbreak_no_patch),
-                    color = MaterialTheme.colorScheme.outlineVariant,
                 )
             }
         }
@@ -116,12 +119,22 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
-
     var needKey by rememberSaveable { mutableStateOf(true) }
 
     val viewModel = viewModel<PatchesViewModel>()
+    val actionState = viewModel<PatchActionState>()
+    var displayedPatchLog by remember(viewModel) {
+        mutableStateOf(Snapshot.withoutReadObservation { viewModel.patchLog })
+    }
     LaunchedEffect(mode) {
         viewModel.prepare(mode)
+    }
+    LaunchedEffect(viewModel) {
+        coalescedLogSnapshots(
+            updates = snapshotFlow { viewModel.patchLog to !viewModel.patching },
+            completed = { it.second },
+            snapshot = { viewModel.patchLog },
+        ).collect { displayedPatchLog = it }
     }
 
     Scaffold(topBar = {
@@ -142,6 +155,19 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
             )
         }
     }) { innerPadding ->
+        if (viewModel.patching || viewModel.patchdone) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
+            ) {
+                PatchMode(mode)
+                ErrorView(viewModel.error)
+                if (viewModel.patching) {
+                    Text(stringResource(R.string.eink_loading), modifier = Modifier.padding(vertical = 8.dp))
+                }
+                EinkLogView(displayedPatchLog, modifier = Modifier.weight(1f).fillMaxWidth())
+            }
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -213,7 +239,7 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                     colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.outlinedCardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp)
@@ -288,30 +314,30 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                     val isBootReady = viewModel.kimgInfo.banner.isNotEmpty()
                     StartButton(
                         text = stringResource(id = R.string.patch_start_patch_btn),
-                        enabled = isKeyReady && isBootReady && !viewModel.running && viewModel.error.isEmpty(),
+                        enabled = isKeyReady && isBootReady && !viewModel.running && viewModel.error.isEmpty() && !actionState.submitted,
                     ) {
-                        viewModel.doPatch(mode, needKey)
+                        // Claim synchronously: IO may not publish 'patching' before another tap.
+                        if (actionState.claimSubmission()) viewModel.doPatch(mode, needKey)
                     }
+                    // Preserve readiness checks and explain the additional UI submission latch.
+                    val unavailableReason = when {
+                        viewModel.error.isNotEmpty() -> viewModel.error
+                        actionState.submitted -> stringResource(R.string.eink_operation_submitted)
+                        viewModel.running -> stringResource(R.string.eink_patch_preparing)
+                        !isBootReady -> stringResource(R.string.eink_patch_waiting_for_image)
+                        !isKeyReady -> stringResource(R.string.eink_patch_waiting_for_key)
+                        else -> null
+                    }
+                    unavailableReason?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
                 // unpatch
                 if (mode == PatchesViewModel.PatchMode.UNPATCH && viewModel.kimgInfo.banner.isNotEmpty()) {
-                    StartButton(stringResource(id = R.string.patch_start_unpatch_btn)) { viewModel.doUnpatch() }
-                }
-            }
-
-            // patch log
-            if (viewModel.patching || viewModel.patchdone) {
-                SelectionContainer {
-                    Text(
-                        modifier = Modifier.padding(8.dp),
-                        text = viewModel.patchLog,
-                        fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                        fontFamily = MaterialTheme.typography.bodySmall.fontFamily,
-                        lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
-                    )
-                }
-                LaunchedEffect(viewModel.patchLog) {
-                    scrollState.animateScrollTo(scrollState.maxValue)
+                    StartButton(stringResource(id = R.string.patch_start_unpatch_btn), enabled = !actionState.submitted) {
+                        if (actionState.claimSubmission()) viewModel.doUnpatch()
+                    }
+                    if (actionState.submitted && viewModel.error.isEmpty()) {
+                        Text(stringResource(R.string.eink_operation_submitted), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
 
@@ -324,11 +350,10 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                         .padding(innerPadding)
                         .align(Alignment.CenterHorizontally)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .padding(16.dp)
-                            .align(Alignment.BottomCenter)
+                    Text(
+                        text = stringResource(R.string.eink_patch_preparing),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
@@ -525,7 +550,7 @@ private fun SetSuperKeyView(viewModel: PatchesViewModel) {
             if (!PatchesViewModel.checkSuperKeyValidation(viewModel.superkeyInput)) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    color = Color.Red,
+                    color = MaterialTheme.colorScheme.onSurface,
                     text = stringResource(id = R.string.patch_item_set_skey_label),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -554,7 +579,7 @@ private fun SetSuperKeyView(viewModel: PatchesViewModel) {
                         Icon(
                             imageVector = if (keyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = null,
-                            tint = Color.Gray
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -699,24 +724,7 @@ private fun SelectFileButton(text: String, onSelected: (data: Intent, uri: Uri) 
 @Composable
 private fun ErrorView(error: String) {
     if (error.isEmpty()) return
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = run {
-            MaterialTheme.colorScheme.error
-        })
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = stringResource(id = R.string.patch_item_error),
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(text = error, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
+    WarningCard(message = "${stringResource(R.string.patch_item_error)}\n$error")
 }
 
 @Composable

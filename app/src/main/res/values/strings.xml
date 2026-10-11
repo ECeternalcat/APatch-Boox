@@ -289,4 +289,24 @@
     <string name="boox_superkey_wrong">Authentication failed. Please verify the key matches the one used during patching.</string>
     <string name="boox_superkey_success">SuperKey accepted.</string>
     <string name="boox_patch_superkey_summary">The official APatch key requires the manager signature to match the official one. This build uses a different signature, so a Custom SuperKey is required.</string>
+    <!-- High-contrast BOOX paper UI -->
+    <string name="eink_action_unavailable">Unavailable</string>
+    <string name="eink_loading">Please wait. The operation is in progress.</string>
+    <string name="eink_operation_submitted">Operation submitted. See the status and log. Return and reopen this page if you need to retry.</string>
+    <string name="eink_operation_complete">Operation completed. See the log for details.</string>
+    <string name="eink_operation_failed">Operation reported failure. See the log for details.</string>
+    <string name="eink_key_applying">Verifying the key and preparing permissions…</string>
+    <string name="eink_log_following">Following latest output.</string>
+    <string name="eink_log_reading">Reading a frozen snapshot. Log recording is not paused.</string>
+    <string name="eink_log_pause">Pause following</string>
+    <string name="eink_log_resume">Resume following</string>
+    <string name="eink_log_no_wrap">Disable wrapping</string>
+    <string name="eink_log_wrap">Enable wrapping</string>
+    <string name="eink_log_unavailable">The full log is no longer available after restarting the app. The saved screen text is not a complete export.</string>
+    <string name="eink_webui_loading">Loading the web interface…</string>
+    <string name="eink_notice_warning">Warning</string>
+    <string name="eink_notice_info">Information</string>
+    <string name="eink_patch_waiting_for_image">Select a boot image and wait for it to be parsed.</string>
+    <string name="eink_patch_waiting_for_key">Enter a valid custom SuperKey to enable patching.</string>
+    <string name="eink_patch_preparing">Preparing the image. Patching is not available yet.</string>
 </resources>

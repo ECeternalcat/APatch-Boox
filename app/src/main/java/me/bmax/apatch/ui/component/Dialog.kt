@@ -21,13 +21,15 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import me.bmax.apatch.ui.component.EinkTextButton as TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -49,6 +51,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.SecureFlagPolicy
 import io.noties.markwon.Markwon
+import me.bmax.apatch.R
 import io.noties.markwon.utils.NoCopySpannableFactory
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
@@ -428,12 +431,15 @@ private fun LoadingDialog() {
         )
     ) {
         Surface(
-            modifier = Modifier.size(100.dp), shape = RoundedCornerShape(8.dp)
+            modifier = Modifier.width(280.dp).wrapContentHeight(), shape = RoundedCornerShape(8.dp)
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                CircularProgressIndicator()
+                Icon(Icons.Filled.HourglassTop, contentDescription = null)
+                Text(stringResource(R.string.eink_loading), style = MaterialTheme.typography.bodyMedium)
             }
         }
         val dialogWindowProvider = LocalView.current.parent as DialogWindowProvider

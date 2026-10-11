@@ -255,4 +255,24 @@
     <string name="kpm_embedded">已嵌入</string>
     <string name="kpm_embedded_unload_invalid">嵌入的 KPM 無法卸載；重新啟動後仍會保持啟用。</string>
     <string name="kpm_install_toast_succ">安裝成功，重新啟動後生效</string>
+    <!-- BOOX 高對比度電子紙介面 -->
+    <string name="eink_action_unavailable">暫時無法使用</string>
+    <string name="eink_loading">請稍候，操作正在進行。</string>
+    <string name="eink_operation_submitted">操作已提交，請查看狀態和日誌。如需重試，請返回後重新進入頁面。</string>
+    <string name="eink_operation_complete">操作已完成，詳情請查看日誌。</string>
+    <string name="eink_operation_failed">操作回報失敗，詳情請查看日誌。</string>
+    <string name="eink_key_applying">正在驗證金鑰並準備權限……</string>
+    <string name="eink_log_following">正在跟隨最新輸出。</string>
+    <string name="eink_log_reading">凍結閱讀中，僅暫停顯示，不暫停日誌記錄。</string>
+    <string name="eink_log_pause">暫停跟隨</string>
+    <string name="eink_log_resume">恢復跟隨</string>
+    <string name="eink_log_no_wrap">關閉自動換行</string>
+    <string name="eink_log_wrap">開啟自動換行</string>
+    <string name="eink_log_unavailable">應用程式重新啟動後完整日誌已無法使用，儲存的畫面文字不能作為完整日誌匯出。</string>
+    <string name="eink_webui_loading">正在載入網頁介面……</string>
+    <string name="eink_notice_warning">警告</string>
+    <string name="eink_notice_info">提示</string>
+    <string name="eink_patch_waiting_for_image">請選擇 Boot 映像檔，並等待解析完成。</string>
+    <string name="eink_patch_waiting_for_key">請輸入有效的自訂超級密鑰，以啟用修補。</string>
+    <string name="eink_patch_preparing">正在準備映像檔，暫時不能開始修補。</string>
 </resources>

@@ -46,8 +46,7 @@ import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import me.bmax.apatch.ui.component.EinkButton as Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,7 +59,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import me.bmax.apatch.ui.component.EinkTextButton as TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -228,11 +227,7 @@ fun UninstallDialog(showDialog: MutableState<Boolean>, navigator: DestinationsNa
                         APApplication.uninstallApatch()
                         navigator.navigate(PatchesDestination(PatchesViewModel.PatchMode.UNPATCH))
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = stringResource(id = R.string.home_dialog_uninstall_all))
                 }
@@ -862,6 +857,9 @@ fun BooxSuperKeyCard() {
                     }
                 )
             }
+            if (applying) {
+                Text(stringResource(R.string.eink_key_applying), style = MaterialTheme.typography.bodyMedium)
+            }
             Spacer(Modifier.height(12.dp))
             Button(
                 enabled = !applying,
@@ -1016,7 +1014,7 @@ fun UpdateCard() {
         val updateDialog = rememberConfirmDialog(onConfirm = { uriHandler.openUri(newVersionUrl) })
         WarningCard(
             message = stringResource(id = R.string.home_new_apatch_found).format(newVersionCode),
-            color = MaterialTheme.colorScheme.outlineVariant,
+            kind = me.bmax.apatch.ui.component.NoticeKind.INFO,
             onClick = {
                 if (changelog.isEmpty()) {
                     uriHandler.openUri(newVersionUrl)

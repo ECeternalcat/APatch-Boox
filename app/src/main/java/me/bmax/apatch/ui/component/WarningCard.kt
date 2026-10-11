@@ -1,91 +1,80 @@
 package me.bmax.apatch.ui.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import me.bmax.apatch.R
 
+enum class NoticeKind { WARNING, INFO }
+
+/** Meaning is carried by a heading and an icon, never by a gray/color fill. */
 @Composable
 fun WarningCard(
     message: String,
-    color: Color? = null,
+    kind: NoticeKind = NoticeKind.WARNING,
     onClick: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
-    icon: (@Composable () -> Unit)? = null
+    icon: (@Composable () -> Unit)? = null,
 ) {
-    val cardColors = CardDefaults.cardColors(
-        containerColor = color ?: MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        disabledContainerColor = MaterialTheme.colorScheme.errorContainer,
-        disabledContentColor = MaterialTheme.colorScheme.onErrorContainer
-    )
-
-    ElevatedCard(
-        colors = cardColors,
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    OutlinedCard(
+        modifier = onClick?.let {
+            Modifier.clickable(interactionSource = interactions, indication = null, role = Role.Button, onClick = it)
+        } ?: Modifier,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(if (pressed) 2.dp else 1.dp, Color.Black),
+        colors = CardDefaults.outlinedCardColors(containerColor = Color.White, contentColor = Color.Black),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(onClick?.let { Modifier.clickable { it() } } ?: Modifier)
-                .padding(20.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart).padding(end = 40.dp)
-            ) {
-                if (icon != null) {
-                    icon()
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Error,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
+            if (icon != null) icon() else Icon(
+                imageVector = if (kind == NoticeKind.WARNING) Icons.Outlined.Warning else Icons.Outlined.Info,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .wrapContentHeight(Alignment.CenterVertically)
+                    text = stringResource(if (kind == NoticeKind.WARNING) R.string.eink_notice_warning else R.string.eink_notice_info),
+                    fontWeight = FontWeight.Bold,
                 )
+                Text(message)
             }
-
-
             if (onClose != null) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(android.R.string.cancel),
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.clickable {
-                        onClose()
-                    }.size(18.dp).align(Alignment.TopEnd)
-                )
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(android.R.string.cancel))
+                }
             }
         }
     }
@@ -96,10 +85,7 @@ fun WarningCard(
 private fun WarningCardPreview() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         WarningCard(message = "Warning message")
-        WarningCard(message = "Warning message", onClose = {})
-        WarningCard(
-            message = "Warning message ",
-            MaterialTheme.colorScheme.outlineVariant,
-        ) {}
+        WarningCard(message = "Dismissible warning", onClose = {})
+        WarningCard(message = "Information", kind = NoticeKind.INFO, onClick = {})
     }
 }

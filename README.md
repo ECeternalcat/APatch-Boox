@@ -35,8 +35,13 @@ BOOX uses a customized Android framework. On the Tab Ultra C Pro firmware tested
 
 **E-ink adaptations**
 
-- A dedicated monochrome (black / white / gray) color scheme replaces all dynamic and custom color themes.
-- Window animations, navigation transitions, and Compose fade/slide/crossfade animations are disabled to reduce ghosting.
+- A fixed black / white paper color scheme replaces dynamic and custom themes and does not invert with Android dark mode. Cards, dialogs, and notice banners have white backgrounds without gray tonal fills.
+- Enabled action buttons use white backgrounds, black text, and black borders. Disabled actions use black backgrounds, white content, and a lock icon; patching also displays the reason an action is unavailable.
+- Notice banners distinguish warnings and information using headings and icons instead of color. Action-button press feedback uses a thicker border instead of an animated gray ripple.
+- Window animations, navigation transitions, and Compose fade/slide/crossfade animations are disabled to reduce ghosting. Loading uses static status text instead of spinning indicators.
+- Install, module-action, and patch logs coalesce display updates at roughly 300 ms while active and flush at completion. No periodic log polling runs while idle. Reading controls freeze/resume the visible snapshot and switch between wrapping and horizontal scrolling; full capture continues independently, and automatic following uses direct scrolling.
+- Body text and monospace logs use 16 sp type with 24 sp line spacing; smaller supporting text uses 14 sp / 20 sp. Shared action buttons have a minimum 48 dp height. Patch/unpatch submissions are latched immediately per page to prevent duplicate taps before IO publishes its running state; return and reopen the page to retry.
+- Captured install/action logs and frozen reading snapshots survive configuration changes in UI-scoped ViewModels. Full in-memory logs are not restored after process death; a saved screen projection is not offered as a complete export. These display changes do not add background task execution or command recovery, and do not use vendor refresh APIs.
 - Home-screen cards that used colored fills (warning bars, KernelPatch / AndroidPatch status cards) are changed to white background with a black border.
 - KernelPatch, APD, SuperKey handling, root authorization, and boot patching behavior are otherwise intended to remain unchanged.
 

@@ -10,10 +10,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,8 +31,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
+import me.bmax.apatch.ui.component.EinkButton as FilledTonalButton
+import me.bmax.apatch.ui.component.EinkFloatingActionButton as FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -181,8 +179,6 @@ fun APModuleScreen(navigator: DestinationsNavigator) {
             }
 
             FloatingActionButton(
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                containerColor = MaterialTheme.colorScheme.primary,
                 onClick = {
                     // select the zip file to install
                     val intent = Intent(Intent.ACTION_GET_CONTENT)
@@ -280,8 +276,8 @@ private fun MetaModuleWarningCard(
 
     AnimatedVisibility(
         visible = show,
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically()
+        enter = EnterTransition.None,
+        exit = ExitTransition.None
     ) {
         WarningCard(
             message = text,

@@ -27,12 +27,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Button
+import me.bmax.apatch.ui.component.EinkButton as Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
+import me.bmax.apatch.ui.component.EinkButton as FilledTonalButton
+import me.bmax.apatch.ui.component.EinkFloatingActionButton as FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +42,7 @@ import androidx.compose.material3.SearchBarScrollBehavior
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import me.bmax.apatch.ui.component.EinkTextButton as TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -225,8 +225,6 @@ fun KPModuleScreen(navigator: DestinationsNavigator) {
                     onClick = {
                         expanded = !expanded
                     },
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    containerColor = MaterialTheme.colorScheme.primary,
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.package_import),

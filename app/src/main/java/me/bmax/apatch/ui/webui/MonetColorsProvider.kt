@@ -67,8 +67,10 @@ object MonetColorsProvider {
                 "surfaceContainerLowest" to colorScheme.surfaceContainerLowest.toCssValue(),
                 "filledTonalButtonContentColor" to colorScheme.onPrimaryContainer.toCssValue(),
                 "filledTonalButtonContainerColor" to colorScheme.secondaryContainer.toCssValue(),
-                "filledTonalButtonDisabledContentColor" to colorScheme.onSurfaceVariant.toCssValue(),
-                "filledTonalButtonDisabledContainerColor" to colorScheme.surfaceVariant.toCssValue(),
+                // Match native e-ink actions: disabled is opaque black/white,
+                // not a low-contrast gray version of an enabled action.
+                "filledTonalButtonDisabledContentColor" to colorScheme.onPrimary.toCssValue(),
+                "filledTonalButtonDisabledContainerColor" to colorScheme.primary.toCssValue(),
                 "filledCardContentColor" to colorScheme.onPrimaryContainer.toCssValue(),
                 "filledCardContainerColor" to colorScheme.primaryContainer.toCssValue(),
                 "filledCardDisabledContentColor" to colorScheme.onSurfaceVariant.toCssValue(),

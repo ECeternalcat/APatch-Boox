@@ -168,7 +168,6 @@ private fun SelectInstallMethod(
             Box(Modifier.padding(12.dp)) {
                 WarningCard(
                     message = stringResource(R.string.jailbreak_no_patch),
-                    color = MaterialTheme.colorScheme.outlineVariant,
                 )
             }
         }
@@ -176,7 +175,7 @@ private fun SelectInstallMethod(
             Box(Modifier.padding(12.dp)) {
                 WarningCard(
                     message = stringResource(R.string.home_install_unknown_summary),
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    kind = me.bmax.apatch.ui.component.NoticeKind.INFO,
                 )
             }
         }

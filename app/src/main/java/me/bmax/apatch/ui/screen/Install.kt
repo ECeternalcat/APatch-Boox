@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -19,21 +17,20 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledTonalButton
+import me.bmax.apatch.ui.component.EinkExtendedFloatingActionButton as ExtendedFloatingActionButton
+import me.bmax.apatch.ui.component.EinkButton as FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import me.bmax.apatch.ui.component.EinkButton as OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,10 +40,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.dropUnlessResumed
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
@@ -56,6 +53,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.bmax.apatch.R
 import me.bmax.apatch.ui.component.KeyEventBlocker
+import me.bmax.apatch.ui.component.EinkLogView
+import me.bmax.apatch.ui.component.LogCaptureViewModel
+import me.bmax.apatch.ui.component.coalescedLogSnapshots
 import me.bmax.apatch.ui.component.rememberCustomDialog
 import me.bmax.apatch.util.hasMetaModule
 import me.bmax.apatch.util.installModule
@@ -77,26 +77,12 @@ enum class MODULE_TYPE {
 @Destination<RootGraph>
 fun InstallScreen(navigator: DestinationsNavigator, uri: Uri, type: MODULE_TYPE) {
     var text by rememberSaveable { mutableStateOf("") }
-    val logContent = remember { StringBuilder() }
+    val capture = viewModel<LogCaptureViewModel>()
+    val logContent = capture.buffer
+    val running by capture.running.collectAsState()
+    val result by capture.result.collectAsState()
     var showFloatAction by rememberSaveable { mutableStateOf(false) }
-
-    val clearScreenSequence = "\u001B[H\u001B[J"
-
-    fun appendOutput(line: String) {
-        logContent.append(line).append("\n")
-        text = (text + line + "\n").takeLast(100_000)
-    }
-
-    fun appendLog(line: String) {
-        if (line.startsWith(clearScreenSequence)) { // clear command
-            text = ""
-            line.removePrefix(clearScreenSequence)
-                .takeIf { it.isNotEmpty() }
-                ?.let(::appendOutput)
-        } else {
-            appendOutput(line)
-        }
-    }
+    var taskStarted by rememberSaveable { mutableStateOf(false) }
 
     val metaModuleAlertDialog = rememberCustomDialog { dismiss: () -> Unit ->
         val uriHandler = LocalUriHandler.current
@@ -134,36 +120,48 @@ fun InstallScreen(navigator: DestinationsNavigator, uri: Uri, type: MODULE_TYPE)
     val context = LocalContext.current
     val snackBarHost = LocalSnackbarHost.current
     val scope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
+    val unavailableLog = stringResource(R.string.eink_log_unavailable)
+
+    LaunchedEffect(logContent) {
+        coalescedLogSnapshots(logContent.updates, { it.complete }, logContent::snapshot).collect {
+            // After process death only the saved reading projection may remain.
+            if (logContent.hasEntries) text = it
+        }
+    }
 
     LaunchedEffect(Unit) {
-        if (text.isNotEmpty()) {
-            return@LaunchedEffect
-        }
+        if (taskStarted) return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            installModule(uri, type, onFinish = { success ->
-                if (!success) return@installModule
+            val start = capture.claimStart()
+            taskStarted = true
+            if (!start) return@withContext
+            capture.running.value = true
+            try {
+                installModule(uri, type, onFinish = { success ->
+                    capture.result.value = success
+                    if (!success) return@installModule
 
-                scope.launch {
-                    showFloatAction = true
+                    scope.launch {
+                        showFloatAction = true
 
-                    // check metamodule
-                    if (hasMetaModule()) return@launch
-                    val mountOldDirectory =
-                        SuFile.open("/data/adb/modules/${getModuleIdFromUri(context, uri)}/system")
-                    val mountNewDirectory =
-                        SuFile.open("/data/adb/modules_update/${getModuleIdFromUri(context, uri)}/system")
-                    if (!mountNewDirectory.isDirectory && !mountOldDirectory.isDirectory) return@launch
+                        // check metamodule
+                        if (hasMetaModule()) return@launch
+                        val mountOldDirectory =
+                            SuFile.open("/data/adb/modules/${getModuleIdFromUri(context, uri)}/system")
+                        val mountNewDirectory =
+                            SuFile.open("/data/adb/modules_update/${getModuleIdFromUri(context, uri)}/system")
+                        if (!mountNewDirectory.isDirectory && !mountOldDirectory.isDirectory) return@launch
 
-                    metaModuleAlertDialog.show()
-                }
+                        metaModuleAlertDialog.show()
+                    }
 
-            }, onStdout = {
-                appendLog(it)
-            }, onStderr = {
-                appendLog(it)
-            })
+                }, onStdout = { logContent.append(it) }, onStderr = { logContent.append(it) })
+            } finally {
+                logContent.finish()
+                capture.running.value = false
+            }
         }
+        text = logContent.snapshot()
     }
 
     Scaffold(topBar = {
@@ -171,13 +169,17 @@ fun InstallScreen(navigator: DestinationsNavigator, uri: Uri, type: MODULE_TYPE)
             navigator.popBackStack()
         }, onSave = {
             scope.launch {
+                if (text.isNotEmpty() && !logContent.hasEntries) {
+                    snackBarHost.showSnackbar(unavailableLog)
+                    return@launch
+                }
                 val format = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault())
                 val date = format.format(Date())
                 val file = File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                     "APatch_install_${type}_log_${date}.log"
                 )
-                file.writeText(logContent.toString())
+                file.writeText(logContent.export())
                 snackBarHost.showSnackbar("Log saved to ${file.absolutePath}")
             }
         })
@@ -204,19 +206,17 @@ fun InstallScreen(navigator: DestinationsNavigator, uri: Uri, type: MODULE_TYPE)
         Column(
             modifier = Modifier
                 .fillMaxSize(1f)
-                .padding(innerPadding)
-                .verticalScroll(scrollState),
+                .padding(innerPadding),
         ) {
-            LaunchedEffect(text) {
-                scrollState.animateScrollTo(scrollState.maxValue)
+            if (running) {
+                Text(stringResource(R.string.eink_loading), modifier = Modifier.padding(8.dp))
+            } else if (result != null) {
+                Text(
+                    stringResource(if (result == true) R.string.eink_operation_complete else R.string.eink_operation_failed),
+                    modifier = Modifier.padding(8.dp),
+                )
             }
-            Text(
-                modifier = Modifier.padding(8.dp),
-                text = text,
-                fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                fontFamily = FontFamily.Monospace,
-                lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
-            )
+            EinkLogView(text, modifier = Modifier.weight(1f).fillMaxWidth())
         }
     }
 }
@@ -279,7 +279,7 @@ private fun TopBar(onBack: () -> Unit = {}, onSave: () -> Unit = {}) {
     }, actions = {
         IconButton(onClick = onSave) {
             Icon(
-                imageVector = Icons.Filled.Save, contentDescription = "Localized description"
+                imageVector = Icons.Filled.Save, contentDescription = stringResource(R.string.save_log)
             )
         }
     })
